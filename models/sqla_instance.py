@@ -13,5 +13,6 @@ Base = declarative_base()
 Session = scoped_session(local_session)
 Base.session = Session
 Base.query = Session.query_property()
+Base.metadata.bind = engine
 
 # fsa = flask_sqlalchemy.SQLAlchemy()
