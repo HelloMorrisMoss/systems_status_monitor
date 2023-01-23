@@ -102,7 +102,7 @@ if __name__ == '__main__':
 
     with SystemModel.session() as sesn:
         demo_dict = dict(hostname='demo_server',
-                         static_ip='10.155.0.21',
+                         static_ip='localhost',
                          username='su',
                          password='password'
                          )

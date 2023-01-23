@@ -1,5 +1,7 @@
 """Contains the logger setup and a simple script to read the log file into a pandas dataframe."""
 import logging
+import os
+import pathlib
 import sys
 from logging.handlers import RotatingFileHandler
 
@@ -39,14 +41,25 @@ def setup_logger():
     c_handler.addFilter(BreadcrumbFilter())
     logr.addHandler(c_handler)
 
-    # file logger
-    f_handler = RotatingFileHandler('mahlo_popup.log', maxBytes=2000000)
+    # file logger -- assumes this file is in the root directory of the project
+    root_path_for_project = pathlib.Path(__file__).parent.resolve()  # get the root dir to use for the name and log dir
+    logs_dir_path = os.path.join(root_path_for_project, 'logs')
+    log_file_name = f'{os.path.split(root_path_for_project)[1]}.log'
+    log_file_path = os.path.join(logs_dir_path, log_file_name)
+    f_handler = RotatingFileHandler(log_file_path, maxBytes=2000000)  # 2 MB defaullt max
     f_handler.setLevel(base_log_level)
     f_string = '"%(asctime)s","%(name)s", "%(breadcrumbs)s","%(funcName)s","%(lineno)d","%(levelname)s","%(message)s"'
     f_format = logging.Formatter(f_string)
     f_handler.addFilter(BreadcrumbFilter())
     f_handler.setFormatter(f_format)
     logr.addHandler(f_handler)
+
+    try:
+        import paramiko
+
+        paramiko.util.log_to_file(os.path.join(logs_dir_path, 'paramiko.log'), level=logging.WARNING)
+    except ImportError:
+        pass  # not being used
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         """Log unhandled exceptions."""

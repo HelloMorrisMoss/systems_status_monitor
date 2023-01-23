@@ -4,6 +4,35 @@ import datetime
 from sqlalchemy.types import TIMESTAMP, TypeDecorator
 
 
+def format_storage_bytes(size: int, decimals: int = 2, binary_system: bool = True) -> str:
+    """Convert bytes size to human-readable units.
+
+    Originally from
+    https://lindevs.com/code-snippets/convert-file-size-in-bytes-into-human-readable-string-using-python
+
+    :param size: int, the number of bytes.
+    :param decimals: int, the number of decimal places to display.
+    :param binary_system: bool, use 1024 instead of 1000 bytes as the step size.
+    :return: str, the formatted size of the
+    """
+
+    if binary_system:
+        units = 'B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB'
+        largest_unit = 'YiB'
+        step: int = 1024
+    else:
+        units = 'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB'
+        largest_unit = 'YB'
+        step: int = 1000
+
+    unit: str
+    for unit in units:
+        if size < step:
+            return f'{size:.{decimals}f} {unit}'
+        size /= step
+    return f'{size:.{decimals}f} {largest_unit}'
+
+
 class Timestamp(TypeDecorator):
     impl = TIMESTAMP
 
@@ -48,19 +77,3 @@ def remove_empty_parameters(data):
     """Accepts a dictionary and returns a dict with only the key, values where the values are not None."""
 
     return {key: value for key, value in data.items() if value is not None}
-
-# def check_for_existing_instance() -> Union[requests.Response, None]:
-#     """Attempts to connect to an existing web server to get the status of the popup.
-#
-#     :return: requests.Response, or None if a connection could not be made.
-#     """
-#     import requests
-#     from log_setup import lg
-#
-#     try:
-#         response: requests.Response = requests.get('http://0.0.0.0:5000/popup_status')
-#         lg.debug(response)
-#     except requests.exceptions.ConnectionError:
-#         response: None = None
-#
-#     return response
