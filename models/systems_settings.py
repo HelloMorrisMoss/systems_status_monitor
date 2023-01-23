@@ -7,7 +7,7 @@ from helpers.dev_common import exception_one_line
 from helpers.helpers import jsonize_sqla_model
 from log_setup import lg
 from models.model_wrapper import ModelWrapper
-from sqla_instance import Base
+from models.sqla_instance import Base
 from untracked_config.cryptokey import AES_key
 
 
@@ -21,6 +21,8 @@ class SystemModel(Base):
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     hostname = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     static_ip = sqlalchemy.Column(sqlalchemy.String)
+    nickname = sqlalchemy.Column(sqlalchemy.String)
+    physical_location = sqlalchemy.Column(sqlalchemy.String)
 
     # credentials
     username = sqlalchemy.Column(sqlalchemy.String, nullable=False)
@@ -61,9 +63,15 @@ class SystemModel(Base):
         :param kwargs: dict, of kwargs['column_name'] = 'value to use'
         :return: DefectModel
         """
-        new_def = SystemModel(**kwargs)
-        new_def.save_to_database()
-        return new_def
+        existing_systems = [stm for stm in cls.query.filter_by(hostname=kwargs['hostname'])]
+        if len(existing_systems):
+            lg.warning('System "%s" may already exist.', kwargs['hostname'])
+        else:
+            new_def = SystemModel(**kwargs)
+            new_def.save_to_database()
+            return new_def
+        return existing_systems[0]
+        pass
 
     @classmethod
     def find_all(cls):
