@@ -10,6 +10,9 @@ from log_setup import lg
 # pattern to grab only a continuous series of numerical characters from between non-numerical characters
 byte_int_regex_ptn = re.compile('(?:\D*)(\d*)(?:\D*)')
 
+# pattern to check for only a single letter
+single_letter_ptn = re.compile('^[a-z|A-Z]$')
+
 
 class SSH_Connection:
     """An SFTP over SSH class for retrieving files."""
@@ -41,8 +44,11 @@ class SSH_Connection:
                 except FileNotFoundError:
                     lg.exception('File not found on host: %s at filepath: %s', self._settings_dict['hostname'], fp)
 
-    def get_free_space(self):
-        ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command('fsutil volume diskfree c:')
+    def get_free_space(self, drive_to_check: str = 'c'):
+        drive_to_check = drive_to_check.strip()
+        if not single_letter_ptn.match(drive_to_check):
+            raise ValueError(f'Drive letter must be a single letter. {drive_to_check}')
+        ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(f'fsutil volume diskfree {drive_to_check}:')
         ssh_lines = ssh_stdout.readlines()
         free_bytes, total_bytes, avail_free_bytes = [int(byte_int_regex_ptn.split(line)[1]) for line in ssh_lines]
         return avail_free_bytes
