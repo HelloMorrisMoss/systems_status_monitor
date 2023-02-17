@@ -1,6 +1,7 @@
 import sqlalchemy
 import sqlalchemy_utils
-from sqlalchemy import func
+from sqlalchemy import Column, func
+from sqlalchemy.orm import relationship
 from sqlalchemy_utils.types.encrypted.encrypted_type import AesEngine
 
 from helpers.dev_common import exception_one_line
@@ -15,26 +16,27 @@ class SystemModel(Base):
     """A model of the computer systems using sqlalchemy declarative base to interact with the database."""
 
     __tablename__ = 'system_info'
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    check_servers = relationship("CheckServer", back_populates='system')
 
     db_current_ts = func.current_timestamp()
 
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    hostname = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    static_ip = sqlalchemy.Column(sqlalchemy.String)
-    nickname = sqlalchemy.Column(sqlalchemy.String)
-    physical_location = sqlalchemy.Column(sqlalchemy.String)
+    hostname = Column(sqlalchemy.String, nullable=False)
+    static_ip = Column(sqlalchemy.String)
+    nickname = Column(sqlalchemy.String)
+    physical_location = Column(sqlalchemy.String)
 
     # credentials
-    username = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    password = sqlalchemy.Column(sqlalchemy_utils.StringEncryptedType(sqlalchemy.Unicode, AES_key, AesEngine),
-                                 nullable=False)
+    username = Column(sqlalchemy.String, nullable=False)
+    password = Column(sqlalchemy_utils.StringEncryptedType(sqlalchemy.Unicode, AES_key, AesEngine),
+                      nullable=False)
 
     # entry metadata
-    entry_created_ts = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True), server_default=db_current_ts)
-    entry_modified_ts = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True), server_default=db_current_ts,
-                                          onupdate=db_current_ts)
-    entry_retired_ts = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True))
-    record_creation_source = sqlalchemy.Column(sqlalchemy.String())
+    entry_created_ts = Column(sqlalchemy.DateTime(timezone=True), server_default=db_current_ts)
+    entry_modified_ts = Column(sqlalchemy.DateTime(timezone=True), server_default=db_current_ts,
+                               onupdate=db_current_ts)
+    entry_retired_ts = Column(sqlalchemy.DateTime(timezone=True))
+    record_creation_source = Column(sqlalchemy.String())
 
     def __init__(self, **kwargs):
         # for the kwargs provided, assign them to the corresponding columns
@@ -103,6 +105,11 @@ class SystemModel(Base):
 
     def jsonizable(self):
         return jsonize_sqla_model(self)
+
+    def add_check_server(self, **server_dict):
+        from models.check_server_table import CheckServer
+
+        CheckServer.new_system(**server_dict)
 
 
 if __name__ == '__main__':
