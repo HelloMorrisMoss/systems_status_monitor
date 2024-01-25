@@ -62,8 +62,16 @@ if __name__ == '__main__':
                         format_storage_bytes(free_space))
                 remote_system_time = ssc.get_system_time()
                 time_diff_secs: float = seconds_between(datetime.datetime.now(), remote_system_time)
-                lg.info('The remote system time is %s, off from local system time by %.2f seconds',
-                        remote_system_time, time_diff_secs)
+
+                # if the time is off enough, start pushing it closer
+                if abs(time_diff_secs) > 10:
+                    fixing_str = ' The time will be nudged ~300 milliseconds closer.'
+                else:
+                    fixing_str = ''
+                    lg.info(f'The remote system time is {remote_system_time}, off from local system time by '
+                            f'{time_diff_secs:.2f} seconds.{fixing_str}')
+                if fixing_str:
+                    ssc.nudge_system_time('+' if time_diff_secs > 10 else '-')
             except AttributeError as atter:
                 if '''NoneType' object has no attribute 'open_session''' in str(atter):
                     lg.warning('''Couldn't connect to %s''', stm['hostname'])
