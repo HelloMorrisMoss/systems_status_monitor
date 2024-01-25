@@ -1,3 +1,4 @@
+import datetime
 import os
 import re
 
@@ -71,6 +72,21 @@ class SSH_Connection:
     @property
     def host(self):
         return self._settings_dict['hostname']
+
+    def get_system_time(self):
+        ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command('wmic path win32_localtime get /format:list')
+        output_lines = ssh_stdout.readlines()
+        output_dict = {}
+        for line in output_lines:
+            if line.strip():
+                key, value = line.strip().split('=', maxsplit=1)
+                try:
+                    output_dict[key] = int(value)
+                except ValueError:
+                    output_dict[key] = 0
+
+        system_time = datetime.datetime(output_dict['Year'], output_dict['Month'], output_dict['Day'], output_dict['Hour'], output_dict['Minute'], output_dict['Second'])
+        return system_time
 
 #     ssh = paramiko.SSHClient()
 #     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

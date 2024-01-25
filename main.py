@@ -1,9 +1,12 @@
+import datetime
+
 from fastapi import FastAPI
 
 from helpers.helpers import format_storage_bytes
 from log_setup import lg
 from monitors.ftp.drive_free_space import SSH_Connection
-from untracked_config.system_dicts import check_server_table, sysdicts
+from monitors.time_check.time_check import seconds_between
+from untracked_config.system_dicts import check_server_table, sysdicts, drive_check_table
 
 app = FastAPI()
 
@@ -22,13 +25,13 @@ if __name__ == '__main__':
     from models.systems_settings import SystemModel
     from models.check_server_table import CheckServer
 
-    drop_old = True  # whether to drop old copies of the tables
+    drop_old = False  # whether to drop old copies of the tables
     load_data_to_tables = True  # whether to load table data into the database
 
     if drop_old:
         _ = CheckServer  # if this is not imported then relationship stuff starts throwing errors all over
-        SystemModel.metadata.drop_all()
-        SystemModel.metadata.create_all()
+        SystemModel.metadata.drop_all(bind=SystemModel.metadata.bind)
+        SystemModel.metadata.create_all(bind=SystemModel.metadata.bind)
 
     if load_data_to_tables:
         # loading system definitions to the db
@@ -52,10 +55,15 @@ if __name__ == '__main__':
             password = stm['password']
             settings_dict = dict(hostname=hostname, username=username, password=password)
             try:
-                free_space = SSH_Connection(settings_dict, retry=2).get_free_space()
+                ssc = SSH_Connection(settings_dict, retry=2)
+                free_space = ssc.get_free_space()
                 lg.info('System %s has %s remaining free on the C drive.',
                         stm['nickname'],
                         format_storage_bytes(free_space))
+                remote_system_time = ssc.get_system_time()
+                time_diff_secs: float = seconds_between(datetime.datetime.now(), remote_system_time)
+                lg.info('The remote system time is %s, off from local system time by %.2f seconds',
+                        remote_system_time, time_diff_secs)
             except AttributeError as atter:
                 if '''NoneType' object has no attribute 'open_session''' in str(atter):
                     lg.warning('''Couldn't connect to %s''', stm['hostname'])
