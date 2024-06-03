@@ -1,6 +1,7 @@
 """Contains CheckServer SQLAlchemy definition. This defines """
 import sqlalchemy
 from sqlalchemy import Column, ForeignKey, func, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from helpers.dev_common import exception_one_line
@@ -26,6 +27,8 @@ class CheckServer(Base):
 
     port = Column(String)
     address_suffix = Column(String)
+    status_condition_type = Column(String)
+    status_condition_value_data = Column(JSONB)
 
     def __init__(self, **kwargs):
         # for the kwargs provided, assign them to the corresponding columns

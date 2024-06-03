@@ -1,5 +1,6 @@
 import datetime
 
+import requests
 from fastapi import FastAPI
 
 from helpers.helpers import format_storage_bytes
@@ -33,6 +34,8 @@ if __name__ == '__main__':
         SystemModel.metadata.drop_all(bind=SystemModel.metadata.bind)
         SystemModel.metadata.create_all(bind=SystemModel.metadata.bind)
 
+    chk_svr: CheckServer  # for type hinting in loops below
+
     if load_data_to_tables:
         # loading system definitions to the db
         # todo: it looks like the check server table is being added repeatedly, possibly here
@@ -52,18 +55,21 @@ if __name__ == '__main__':
         for stm in SystemModel.find_all():
             try:
                 with SystemConnection(stm, retry=2) as ssc:
+                    # check drive space available
+                    # ---------------------------
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
-                    free_space = ssc.get_free_space(check_drive_letter)
-                    lg.info(f'System %s has %s remaining free on the {check_drive_letter} drive.',
-                            stm.nickname,
-                            format_storage_bytes(free_space))
+                    free_space = format_storage_bytes(ssc.get_free_space(check_drive_letter))
+                    lg.info('System %s has %s remaining free on the %s drive.',
+                            stm.nickname, free_space, check_drive_letter)
 
+                    # check clock drift
+                    # -----------------
                     remote_system_time = ssc.get_system_time()
                     time_diff_secs: float = seconds_between(datetime.datetime.now(), remote_system_time)
 
                     # if the time is off enough, start pushing it a little closer
                     if abs(time_diff_secs) > 10:
-                        fixing_str = ' The time will be nudged ~300 milliseconds closer.'
+                        fixing_str = ' The time will be nudged ~300 milliseconds closer.'  # leading space for below
                     else:
                         fixing_str = ''
 
@@ -76,6 +82,22 @@ if __name__ == '__main__':
                         ssc.nudge_system_time('+' if time_diff_secs < 0 else '-')
                         remote_system_time_new = ssc.get_system_time()
                         time_diff_secs_new: float = seconds_between(datetime.datetime.now(), remote_system_time_new)
+
+                    # check the web servers
+                    # ---------------------
+                    for chk_svr in stm.check_servers:
+                        if chk_svr.status_condition_type == 'status_code':
+                            server_address = f'https://{stm.web_address}:{chk_svr.port}/{chk_svr.address_suffix}'
+                            try:
+                                response = requests.get(server_address, timeout=5)
+                                if response.status_code == chk_svr.status_condition_value_data['status_code']:
+                                    lg.info('Server active at: %s', server_address)
+                                else:
+                                    lg.warning('Server failure %s at %s', response.status_code, server_address)
+                            except requests.exceptions.ReadTimeout:
+                                lg.warning('Server timeout at %s', server_address)
+                            except requests.exceptions.ConnectionError as cerr:
+                                lg.warning('Server connection failure: %s', cerr)
 
             except AttributeError as atter:
                 if '''NoneType' object has no attribute 'open_session''' in str(atter):

@@ -132,6 +132,11 @@ class SystemModel(Base):
         finally:
             return result
 
+    @property
+    def web_address(self):
+        if self.static_ip:
+            return self.static_ip
+        return self.hostname
 
 
 if __name__ == '__main__':
