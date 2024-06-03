@@ -4,7 +4,7 @@ import unittest
 import mock
 import paramiko
 
-from monitors.ftp.drive_free_space import SSH_Connection
+from monitors.ftp.drive_free_space import SystemConnection
 
 
 class TestFreeBytesOnCDrive(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestFreeBytesOnCDrive(unittest.TestCase):
         connec_dict = dict(hostname=self.host, username=self.username, password=self.password)
 
         # Test the function
-        result = SSH_Connection(connec_dict).get_free_space()
+        result = SystemConnection(connec_dict).get_free_space()
 
         # Assert that the function returns the expected result
         self.assertEqual(result, self.expected_result)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
 # class MyTestCase(unittest.TestCase):
 #     def test_get_free_space(self):
-#         SSH_Connection
+#         SystemConnection
 #
 #
 # if __name__ == '__main__':
