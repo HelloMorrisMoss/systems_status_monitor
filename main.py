@@ -1,5 +1,4 @@
 import datetime
-import time
 
 from fastapi import FastAPI
 
@@ -7,7 +6,7 @@ from helpers.helpers import format_storage_bytes
 from log_setup import lg
 from monitors.ftp.drive_free_space import SystemConnection
 from monitors.time_check.time_check import seconds_between
-from untracked_config.system_dicts import check_server_table, sysdicts, drive_check_table
+from untracked_config.system_dicts import check_server_lists_dict, sysdicts, drive_check_table
 
 app = FastAPI()
 
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     from models.systems_settings import SystemModel
     from models.check_server_table import CheckServer
 
-    drop_old = False  # whether to drop old copies of the tables
+    drop_old = False  # whether to drop old copies of the tables (creating them anew)
     load_data_to_tables = True  # whether to load table data into the database
 
     if drop_old:
@@ -36,14 +35,16 @@ if __name__ == '__main__':
 
     if load_data_to_tables:
         # loading system definitions to the db
+        # todo: it looks like the check server table is being added repeatedly, possibly here
         with SystemModel.session() as sesn:
             all_systems = [stm.__dict__ for stm in SystemModel.find_all()]  # look at existing systems
             for systm in sysdicts:
                 this_stm: SystemModel = SystemModel.new_system(**systm)
                 # if there's a server to check add it to the system
-                check_server_dict = check_server_table.get(this_stm.id)
-                if check_server_dict:
-                    this_stm.add_check_server(**check_server_dict)
+                check_server_list = check_server_lists_dict.get(this_stm.id)
+                if check_server_list:
+                    for chk_svr in check_server_list:
+                        this_stm.add_check_server(**chk_svr)
             all_systems = [stm.__dict__ for stm in SystemModel.find_all()]  # look at existing systems
 
     # proof of concept check system storage

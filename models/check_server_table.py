@@ -1,6 +1,6 @@
 """Contains CheckServer SQLAlchemy definition. This defines """
-
-from sqlalchemy import Column, ForeignKey, func, Integer, String
+import sqlalchemy
+from sqlalchemy import Column, ForeignKey, func, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from helpers.dev_common import exception_one_line
@@ -14,12 +14,15 @@ class CheckServer(Base):
     """A model of the computer systems using sqlalchemy declarative base to interact with the database."""
 
     __tablename__ = 'check_server'
+    __table_args__ = (
+        UniqueConstraint('parent_id', 'port', 'address_suffix', name='unique_check_server'),
+    )
 
     db_current_ts = func.current_timestamp()
 
     id = Column(Integer, primary_key=True)
     system = relationship('SystemModel', back_populates='check_servers')
-    parent_id = Column(Integer, ForeignKey('system_info.id'))
+    parent_id = Column(Integer, ForeignKey('system_info.id'), nullable=False)
 
     port = Column(String)
     address_suffix = Column(String)
@@ -47,7 +50,7 @@ class CheckServer(Base):
         return id_df
 
     @classmethod
-    def new_system(cls, **kwargs):
+    def new_system(cls, system_id, **kwargs):
         """Create a new system entry using any column values provided as keyword parameters.
 
         :param kwargs: dict, of kwargs['column_name'] = 'value to use'
@@ -76,6 +79,9 @@ class CheckServer(Base):
         self.session.add(self)
         try:
             self.session.commit()
+        except sqlalchemy.exc.IntegrityError as sql_ierr:
+            lg.warning('CheckServer "%s,%s,%s" may already exist.', self.parent_id, self.port, self.address_suffix)
+            self.session.rollback()
         except Exception as exc:
             lg.error(exception_one_line(exception_obj=exc))
             self.session.rollback()

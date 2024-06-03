@@ -19,7 +19,10 @@ class SystemModel(Base):
 
     __tablename__ = 'system_info'
     id = Column(sqlalchemy.Integer, primary_key=True)
-    check_servers = relationship("CheckServer", back_populates='system')
+    check_servers = relationship("CheckServer",
+                                 back_populates='system',  # this is the column name from the other model
+                                 cascade="all, delete-orphan",
+                                 )
 
     db_current_ts = func.current_timestamp()
 
@@ -118,8 +121,17 @@ class SystemModel(Base):
 
     def add_check_server(self, **server_dict):
         from models.check_server_table import CheckServer
+        new_server_dict = {'system_id': self.id, 'parent_id': self.id} | server_dict
+        try:
+            self.check_servers.append(CheckServer.new_system(**new_server_dict))
+            result = dict(success=True, error=None)
+        except sqlalchemy.exc.IntegrityError as sql_ierr:
+            result = dict(success=True, error=sql_ierr)
+        except Exception as uhe:
+            result = dict(success=False, error=uhe)
+        finally:
+            return result
 
-        CheckServer.new_system(**server_dict)
 
 
 if __name__ == '__main__':
@@ -132,3 +144,4 @@ if __name__ == '__main__':
                          password='password'
                          )
         SystemModel.new_system(**demo_dict)
+# 89013
