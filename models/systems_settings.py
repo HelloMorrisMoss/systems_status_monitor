@@ -1,3 +1,5 @@
+from pprint import pformat
+
 import sqlalchemy
 import sqlalchemy_utils
 from sqlalchemy import Column, func
@@ -44,6 +46,14 @@ class SystemModel(Base):
         for kw, val in kwargs.items():
             if kw in self_keys:
                 setattr(self, kw, val)
+
+    def __str__(self):
+        pretty_dict = self.__dict__.copy()
+        return pformat(pretty_dict)
+
+    def __repr__(self):
+        lcb, rcb = '{', '}'
+        return f'''{super().__repr__()}: SystemModel{lcb}id: {self.id}, nickname:"{self.nickname}{rcb}"'''
 
     @classmethod
     def find_by_id(cls, id_, get_sqalchemy=False):
