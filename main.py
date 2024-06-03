@@ -50,33 +50,32 @@ if __name__ == '__main__':
     with SystemModel.session() as sesn:
         for stm in SystemModel.find_all():
             try:
-                ssc = SystemConnection(stm, retry=2)
-                check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
-                free_space = ssc.get_free_space(check_drive_letter)
-                lg.info(f'System %s has %s remaining free on the {check_drive_letter} drive.',
-                        stm.nickname,
-                        format_storage_bytes(free_space))
-                remote_system_time = ssc.get_system_time()
-                time_diff_secs: float = seconds_between(datetime.datetime.now(), remote_system_time)
+                with SystemConnection(stm, retry=2) as ssc:
+                    check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
+                    free_space = ssc.get_free_space(check_drive_letter)
+                    lg.info(f'System %s has %s remaining free on the {check_drive_letter} drive.',
+                            stm.nickname,
+                            format_storage_bytes(free_space))
 
-                # if the time is off enough, start pushing it a little closer
-                if abs(time_diff_secs) > 10:
-                    fixing_str = ' The time will be nudged ~300 milliseconds closer.'
-                else:
-                    fixing_str = ''
+                    remote_system_time = ssc.get_system_time()
+                    time_diff_secs: float = seconds_between(datetime.datetime.now(), remote_system_time)
 
-                lg.info(
-                    f'The time for the remote system {stm.nickname} is {remote_system_time}, off from local system '
-                    f'time by {time_diff_secs:.2f} seconds.{fixing_str}')
-                # if time_diff_secs >= 60:  # todo: better notification
-                #     input('Please note the time difference. (enter)\n')
-                if fixing_str:
-                    ssc.nudge_system_time('+' if time_diff_secs < 0 else '-')
-                    remote_system_time_new = ssc.get_system_time()
-                    time_diff_secs_new: float = seconds_between(datetime.datetime.now(), remote_system_time_new)
-                    print(f'{time_diff_secs_new==time_diff_secs=}: {time_diff_secs_new} {time_diff_secs}')
+                    # if the time is off enough, start pushing it a little closer
+                    if abs(time_diff_secs) > 10:
+                        fixing_str = ' The time will be nudged ~300 milliseconds closer.'
+                    else:
+                        fixing_str = ''
 
-                ssc.close()
+                    lg.info(
+                        f'The time for the remote system {stm.nickname} is {remote_system_time}, off from local system '
+                        f'time by {time_diff_secs:.2f} seconds.{fixing_str}')
+                    # if time_diff_secs >= 60:  # todo: better notification
+                    #     input('Please note the time difference. (enter)\n')
+                    if fixing_str:
+                        ssc.nudge_system_time('+' if time_diff_secs < 0 else '-')
+                        remote_system_time_new = ssc.get_system_time()
+                        time_diff_secs_new: float = seconds_between(datetime.datetime.now(), remote_system_time_new)
+
             except AttributeError as atter:
                 if '''NoneType' object has no attribute 'open_session''' in str(atter):
                     lg.warning('''Couldn't connect to %s''', stm['hostname'])

@@ -43,7 +43,7 @@ class SSHClientBase:
             try:
                 self.ssh.connect(**self._settings_dict)
                 timeout_er = None
-                break
+                break  # Successful connection, break out of the loop.
             except TimeoutError as to_er:
                 timeout_er = to_er
                 lg.warning('Could not connect to remote host.')
@@ -70,6 +70,15 @@ class SSHClientBase:
     @property
     def host(self):
         return self._settings_dict['hostname']
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.ssh:
+            self.ssh.close()
+            self.ssh = None
+        return False
 
 
 class SystemConnection(SSHClientBase):
