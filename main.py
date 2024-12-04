@@ -23,6 +23,11 @@ async def say_hello(name: str):
 
 
 if __name__ == '__main__':
+    # todo:
+    #  * refactor this script into functions or such
+    #  * historize the drive storage data for future analysis
+    #  * interface for adding/modifying systems and checks
+    #  * interface for viewing status, history, and trends
     from models.systems_settings import SystemModel
     from models.check_server_table import CheckServer
 
@@ -58,9 +63,19 @@ if __name__ == '__main__':
                     # check drive space available
                     # ---------------------------
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
-                    free_space = format_storage_bytes(ssc.get_free_space(check_drive_letter))
+                    free_space_bytes: int = ssc.get_free_space(check_drive_letter)
+                    free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
                     lg.info('System %s has %s remaining free on the %s drive.',
                             stm.nickname, free_space, check_drive_letter)
+                    warning_bytes = drive_check_table[stm.id]['alert_low_bytes'][0]
+                    warning_bytes_formatted: str = format_storage_bytes(warning_bytes, binary_system=False)
+                    if warning_bytes >= free_space_bytes:
+                        lg.warning('BELOW WARNING LIMIT: %s for System %s has %s remaining free on the %s drive.',
+                                   warning_bytes_formatted, stm.nickname, free_space, check_drive_letter)
+
+                    system_up_since = ssc.get_windows_boot_time()
+                    system_up_time = datetime.datetime.now() - system_up_since
+                    uptime_str = f' System up for {str(system_up_time)} since {system_up_since}'
 
                     # check clock drift
                     # -----------------
@@ -75,7 +90,8 @@ if __name__ == '__main__':
 
                     lg.info(
                         f'The time for the remote system {stm.nickname} is {remote_system_time}, off from local system '
-                        f'time by {time_diff_secs:.2f} seconds.{fixing_str}')
+                        f'time by {time_diff_secs:.2f} seconds.{fixing_str}'
+                        f'{uptime_str}')
                     # if time_diff_secs >= 60:  # todo: better notification
                     #     input('Please note the time difference. (enter)\n')
                     if fixing_str:
@@ -87,7 +103,7 @@ if __name__ == '__main__':
                     # ---------------------
                     for chk_svr in stm.check_servers:
                         if chk_svr.status_condition_type == 'status_code':
-                            server_address = f'https://{stm.web_address}:{chk_svr.port}/{chk_svr.address_suffix}'
+                            server_address = f'http://{stm.web_address}:{chk_svr.port}/{chk_svr.address_suffix}'
                             try:
                                 response = requests.get(server_address, timeout=5)
                                 if response.status_code == chk_svr.status_condition_value_data['status_code']:

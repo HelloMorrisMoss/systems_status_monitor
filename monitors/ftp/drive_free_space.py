@@ -1,6 +1,7 @@
 import datetime
 import os
 import re
+from typing import Union
 
 import paramiko
 
@@ -140,6 +141,54 @@ class SystemConnection(SSHClientBase):
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(check_string, timeout=5)
         return ssh_stdout.read().strip()
 
+    # def get_boot_time_str(format: str = None) -> str:
+    #     """Get the boot time as a string.
+    #
+    #     :param format: str, the datetime.datetime format string to use. Defaults to ISO format.
+    #
+    #     :return: str, the datetime.datetime as a formatted string.
+    #     """
+    #     return_value = ''
+    #     try:
+    #         windows_boot_time = get_windows_boot_time()
+    #         if format:
+    #             return_value = windows_boot_time.strftime(format)
+    #         else:
+    #             return_value = windows_boot_time.isoformat()
+    #     except Exception as uhe:
+    #         lg.warning(uhe)
+    #         return_value = exception_one_line(uhe)
+    #
+    #     return return_value
+
+    def get_windows_boot_time(self) -> Union[datetime.datetime, None]:
+        """Get the Windows boot time as a datetime.datetime object.
+
+        :return: datetime.datetime, the Windows boot time, or None if it cannot be retrieved.
+
+        """
+        # # this works but it has a small lag as powershell starts up; doesn't work on the old Mahlo HMIs (old powershell)
+        # datetime.datetime.strptime(subprocess.check_output(['powershell',
+        # '(gcim Win32_OperatingSystem).LastBootUpTime']).strip().decode('UTF-8'), '%A, %B %d, %Y %I:%M:%S %p')
+
+        command = 'net stats workstation'
+        # process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        # output, error = process.communicate()
+        # if process.returncode == 0:
+        # check_string = '(dir 2>&1 *`|echo CMD);&<# rem #>echo ($PSVersionTable).PSEdition'
+        ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(command, timeout=5)
+        out_text = ssh_stdout.read().decode('utf8').strip()
+        # up_time_ptn = re.compile(r'.*since(?:\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{1,2}:\d{1,2} [AP]M).*')
+        # return datetime.datetime.strptime(out_text[out_text.index('since ') + 6: out_text.index('\n\n\n  Bytes')],
+        #                                       '%m/%d/%Y %I:%M:%S %p')
+        for ln, line in enumerate(out_text.split('\n')):
+            try:
+                line = line.strip()
+                return datetime.datetime.strptime(line[line.index('since ') + 6:], '%m/%d/%Y %I:%M:%S %p')
+            except ValueError:
+                pass
+        # else:
+        #     return None
 
 #     ssh = paramiko.SSHClient()
 #     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
