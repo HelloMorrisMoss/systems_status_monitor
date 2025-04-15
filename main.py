@@ -64,6 +64,7 @@ if __name__ == '__main__':
                     # ---------------------------
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
                     free_space_bytes: int = ssc.get_free_space(check_drive_letter)
+                    stm.add_storage_record(bytes_free=free_space_bytes, drive_letter=check_drive_letter)
                     free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
                     lg.info('System %s has %s remaining free on the %s drive.',
                             stm.nickname, free_space, check_drive_letter)

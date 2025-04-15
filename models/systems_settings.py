@@ -11,6 +11,7 @@ from helpers.helpers import jsonize_sqla_model
 from log_setup import lg
 from models.model_wrapper import ModelWrapper
 from models.sqla_instance import Base
+from models.storage_records import StorageRecord
 from untracked_config.cryptokey import AES_key
 
 
@@ -23,6 +24,11 @@ class SystemModel(Base):
                                  back_populates='system',  # this is the column name from the other model
                                  cascade="all, delete-orphan",
                                  )
+
+    storage_records = relationship("StorageRecord",
+                                   back_populates='system',  # this is the column name from the other model
+                                   cascade="all, delete-orphan",
+                                   )
 
     db_current_ts = func.current_timestamp()
 
@@ -124,6 +130,20 @@ class SystemModel(Base):
         new_server_dict = {'system_id': self.id, 'parent_id': self.id} | server_dict
         try:
             self.check_servers.append(CheckServer.new_system(**new_server_dict))
+            result = dict(success=True, error=None)
+        except sqlalchemy.exc.IntegrityError as sql_ierr:
+            result = dict(success=True, error=sql_ierr)
+        except Exception as uhe:
+            result = dict(success=False, error=uhe)
+        finally:
+            return result
+
+    def add_storage_record(self, **record_dict):
+        new_record_dict = {'parent_id': self.id} | record_dict
+        try:
+            # with self.session() as sesn:
+            new_record = StorageRecord.new_record(**new_record_dict)
+            self.storage_records.append(new_record)
             result = dict(success=True, error=None)
         except sqlalchemy.exc.IntegrityError as sql_ierr:
             result = dict(success=True, error=sql_ierr)
