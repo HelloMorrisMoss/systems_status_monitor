@@ -62,7 +62,7 @@ class SystemModel(Base):
 
     def __repr__(self):
         lcb, rcb = '{', '}'
-        return f'''{super().__repr__()}: SystemModel{lcb}id: {self.id}, nickname:"{self.nickname}{rcb}"'''
+        return f'''{super().__repr__()}: SystemModel{lcb}id: {self.id}, nickname:"{self.nickname}{rcb}">'''
 
     @classmethod
     def find_by_id(cls, id_, get_sqalchemy=False):

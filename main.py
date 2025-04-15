@@ -1,4 +1,5 @@
 import datetime
+from statistics import linear_regression
 
 import requests
 from fastapi import FastAPI
@@ -65,14 +66,30 @@ if __name__ == '__main__':
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
                     free_space_bytes: int = ssc.get_free_space(check_drive_letter)
                     stm.add_storage_record(bytes_free=free_space_bytes, drive_letter=check_drive_letter)
-                    free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
-                    lg.info('System %s has %s remaining free on the %s drive.',
-                            stm.nickname, free_space, check_drive_letter)
+
+                    # calculate projected days until drive reaches warning and zero free bytes
+                    records = stm.storage_records
+                    # todo: filter on when the bytes went up, create an overall trend slope to compare with the recent
+                    x, y = zip(*[[rcd.record_timestamp.timestamp(), rcd.bytes_free] for rcd in records])
+                    slope, intercept = linear_regression(x, y)  # will be bytes per second,
+                    estimated_zero_bytes_datetime = datetime.datetime.fromtimestamp((0 - intercept) / slope)
+
                     warning_bytes = drive_check_table[stm.id]['alert_low_bytes'][0]
                     warning_bytes_formatted: str = format_storage_bytes(warning_bytes, binary_system=False)
+
+                    estimated_warn_bytes_datetime = datetime.datetime.fromtimestamp((warning_bytes - intercept) / slope)
+
+                    free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
                     if warning_bytes >= free_space_bytes:
-                        lg.warning('BELOW WARNING LIMIT: %s for System %s has %s remaining free on the %s drive.',
-                                   warning_bytes_formatted, stm.nickname, free_space, check_drive_letter)
+                        lg.warning('BELOW WARNING LIMIT: %s for System %s has %s remaining free on the %s drive'
+                                   ' - estimated zero bytes @ %s.',
+                                   warning_bytes_formatted, stm.nickname, free_space, check_drive_letter,
+                                   estimated_zero_bytes_datetime)
+                    else:
+                        lg.info('System %s has %s remaining free on the %s drive. Will warn at %s bytes,'
+                                ' estimated date: %s',
+                                stm.nickname, free_space, check_drive_letter, warning_bytes_formatted,
+                                estimated_warn_bytes_datetime)
 
                     system_up_since = ssc.get_windows_boot_time()
                     system_up_time = datetime.datetime.now() - system_up_since
