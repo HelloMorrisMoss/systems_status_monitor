@@ -47,7 +47,7 @@ class SSHClientBase:
                 break  # Successful connection, break out of the loop.
             except TimeoutError as to_er:
                 timeout_er = to_er
-                lg.warning('Could not connect to remote host.')
+                lg.warning('Could not connect to remote host. %', self._settings_dict['hostname'])
             finally:
                 retry -= 1
         if timeout_er:

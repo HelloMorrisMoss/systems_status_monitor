@@ -32,7 +32,7 @@ if __name__ == '__main__':
     from models.check_server_table import CheckServer
 
     drop_old = False  # whether to drop old copies of the tables (creating them anew)
-    load_data_to_tables = True  # whether to load table data into the database
+    load_data_to_tables = False  # whether to load table data into the database
 
     if drop_old:
         _ = CheckServer  # if this is not imported then relationship stuff starts throwing errors all over
@@ -120,5 +120,7 @@ if __name__ == '__main__':
                     lg.warning('''Couldn't connect to %s''', stm['hostname'])
                 else:
                     raise atter
+            except TimeoutError as timeout_er:
+                lg.warning('''Couldn't connect to %s. %s''', stm['hostname'], timeout_er)
     input('Press enter to continue.')
 pass
