@@ -3,6 +3,7 @@ from pprint import pformat
 import sqlalchemy
 import sqlalchemy_utils
 from sqlalchemy import Column, func
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy_utils.types.encrypted.encrypted_type import AesEngine
 
@@ -143,7 +144,7 @@ class SystemModel(Base):
     def add_storage_record(self, **record_dict):
         new_record_dict = {'parent_id': self.id} | record_dict
         try:
-            # with self.session() as sesn:
+            new_record_dict['bytes_cleared'] = self.most_recent_storage_record.bytes_free < record_dict['bytes_free']
             new_record = StorageRecord.new_record(**new_record_dict)
             self.storage_records.append(new_record)
             result = dict(success=True, error=None)
@@ -153,6 +154,12 @@ class SystemModel(Base):
             result = dict(success=False, error=uhe)
         finally:
             return result
+
+    @hybrid_property
+    def most_recent_storage_record(self):
+        if self.storage_records:
+            return max(self.storage_records, key=lambda r: r.record_timestamp)
+        return None
 
     @property
     def web_address(self):

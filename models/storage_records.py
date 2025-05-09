@@ -26,6 +26,7 @@ class StorageRecord(Base):
     drive_letter = Column(String)
     record_timestamp = Column(sqlalchemy.DateTime(timezone=True), server_default=db_current_ts)
     bytes_free = Column(sqlalchemy.BigInteger)
+    bytes_cleared = Column(sqlalchemy.Boolean, nullable=False, default=False)
 
     def __init__(self, **kwargs):
         # for the kwargs provided, assign them to the corresponding columns

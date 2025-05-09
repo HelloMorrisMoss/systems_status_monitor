@@ -64,7 +64,6 @@ if __name__ == '__main__':
                 with SystemConnection(stm, retry=2) as ssc:
                     # check drive space available
                     # ---------------------------
-                    print(repr(stm))
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
                     free_space_bytes: int = ssc.get_free_space(check_drive_letter)
                     stm.add_storage_record(bytes_free=free_space_bytes, drive_letter=check_drive_letter)
@@ -145,4 +144,4 @@ if __name__ == '__main__':
             except TimeoutError as timeout_er:
                 lg.warning('''Couldn't connect to %s. %s''', stm.hostname, timeout_er)
     input('Press enter to continue.')
-pass
+pass  # for development, ide breakpoint
