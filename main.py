@@ -57,12 +57,14 @@ if __name__ == '__main__':
             all_systems = [stm.__dict__ for stm in SystemModel.find_all()]  # look at existing systems
 
     # proof of concept check system storage
+    today = datetime.datetime.today()
     with SystemModel.session() as sesn:
         for stm in SystemModel.find_all():
             try:
                 with SystemConnection(stm, retry=2) as ssc:
                     # check drive space available
                     # ---------------------------
+                    print(repr(stm))
                     check_drive_letter: str = drive_check_table[stm.id]['drive_letter']
                     free_space_bytes: int = ssc.get_free_space(check_drive_letter)
                     stm.add_storage_record(bytes_free=free_space_bytes, drive_letter=check_drive_letter)
@@ -72,24 +74,26 @@ if __name__ == '__main__':
                     # todo: filter on when the bytes went up, create an overall trend slope to compare with the recent
                     x, y = zip(*[[rcd.record_timestamp.timestamp(), rcd.bytes_free] for rcd in records])
                     slope, intercept = linear_regression(x, y)  # will be bytes per second,
-                    estimated_zero_bytes_datetime = datetime.datetime.fromtimestamp((0 - intercept) / slope)
 
                     warning_bytes = drive_check_table[stm.id]['alert_low_bytes'][0]
                     warning_bytes_formatted: str = format_storage_bytes(warning_bytes, binary_system=False)
 
-                    estimated_warn_bytes_datetime = datetime.datetime.fromtimestamp((warning_bytes - intercept) / slope)
-
                     free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
                     if warning_bytes >= free_space_bytes:
+                        estimated_zero_bytes_datetime = datetime.datetime.fromtimestamp((0 - intercept) / slope)
+                        days_till_zero_bytes = (estimated_zero_bytes_datetime - today).days
                         lg.warning('BELOW WARNING LIMIT: %s for System %s has %s remaining free on the %s drive'
-                                   ' - estimated zero bytes @ %s.',
+                                   ' - drive full in %s days.',
                                    warning_bytes_formatted, stm.nickname, free_space, check_drive_letter,
-                                   estimated_zero_bytes_datetime)
+                                   days_till_zero_bytes)
                     else:
+                        estimated_warn_bytes_datetime = datetime.datetime.fromtimestamp(
+                            (warning_bytes - intercept) / slope)
+                        days_till_warn_limit = (estimated_warn_bytes_datetime - today).days
                         lg.info('System %s has %s remaining free on the %s drive. Will warn at %s bytes,'
-                                ' estimated date: %s',
+                                ' estimated in %s days.',
                                 stm.nickname, free_space, check_drive_letter, warning_bytes_formatted,
-                                estimated_warn_bytes_datetime)
+                                days_till_warn_limit)
 
                     system_up_since = ssc.get_windows_boot_time()
                     system_up_time = datetime.datetime.now() - system_up_since
@@ -139,6 +143,6 @@ if __name__ == '__main__':
                 else:
                     raise atter
             except TimeoutError as timeout_er:
-                lg.warning('''Couldn't connect to %s. %s''', stm['hostname'], timeout_er)
+                lg.warning('''Couldn't connect to %s. %s''', stm.hostname, timeout_er)
     input('Press enter to continue.')
 pass

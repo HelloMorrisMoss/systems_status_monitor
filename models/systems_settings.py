@@ -62,7 +62,10 @@ class SystemModel(Base):
 
     def __repr__(self):
         lcb, rcb = '{', '}'
-        return f'''{super().__repr__()}: SystemModel{lcb}id: {self.id}, nickname:"{self.nickname}{rcb}">'''
+        # additional_info = f'id: {self.id}, nickname:"{self.nickname}'
+        additional_info_properties = ['id', 'nickname', 'hostname', 'check_servers', 'physical_location']
+        additional_info = ', '.join([f'{aiprop}: "{getattr(self, aiprop)}"' for aiprop in additional_info_properties])
+        return f'''{super().__repr__()}: SystemModel{lcb}{additional_info}{rcb}">'''
 
     @classmethod
     def find_by_id(cls, id_, get_sqalchemy=False):
@@ -92,7 +95,6 @@ class SystemModel(Base):
             new_def.save_to_database()
             return new_def
         return existing_systems[0]
-        pass
 
     @classmethod
     def find_all(cls):
