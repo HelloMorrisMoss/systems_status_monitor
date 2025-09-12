@@ -121,7 +121,7 @@ class SystemConnection(SSHClientBase):
                self.ldt_ptn.match(output_text).groupdict().items()})
         return system_time
 
-    def nudge_system_time(self, sign):
+    def nudge_system_time(self, sign, nudge_ms=300):
         s_lower = sign.lower()
         if s_lower in ('negative', '-'):
             sign_str = '-'
@@ -131,7 +131,7 @@ class SystemConnection(SSHClientBase):
             raise ValueError('The sign parameter can only be a string matching one of:'
                              ' "negative", "-", "positive", or "+".')
         update_string = (f'{"Powershell " if self.shell_type == "CMD" else ""}'
-                         f'Set-Date (Get-Date).AddMilliseconds({sign_str}300)')
+                         f'Set-Date (Get-Date).AddMilliseconds({sign_str}{nudge_ms})')
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(update_string, timeout=5)
         # output_lines = ssh_stdout.read()  # this will not return anything
 
