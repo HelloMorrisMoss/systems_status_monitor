@@ -35,7 +35,8 @@ def setup_logger():
 
     # console logger
     c_handler = logging.StreamHandler()
-    c_handler.setLevel(base_log_level)
+    # c_handler.setLevel(base_log_level)
+    c_handler.setLevel(logging.INFO)
     c_format = logging.Formatter('%(asctime)-30s %(breadcrumbs)-45s %(levelname)s: %(message)s')
     c_handler.setFormatter(c_format)
     c_handler.addFilter(BreadcrumbFilter())

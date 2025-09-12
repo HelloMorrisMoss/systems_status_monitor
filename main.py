@@ -150,7 +150,7 @@ if __name__ == '__main__':
 
             except AttributeError as atter:
                 if '''NoneType' object has no attribute 'open_session''' in str(atter):
-                    lg.warning('''Couldn't connect to %s''', stm['hostname'])
+                    lg.warning('''Couldn't connect to %s''', stm.hostname)
                 else:
                     raise atter
             except TimeoutError as timeout_er:
