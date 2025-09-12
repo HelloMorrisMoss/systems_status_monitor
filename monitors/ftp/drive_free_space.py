@@ -8,8 +8,12 @@ import paramiko
 from log_setup import lg
 from models.systems_settings import SystemModel
 
-# pattern to grab only a continuous series of numerical characters from between non-numerical characters
-byte_int_regex_ptn = re.compile('(?:\D*)(\d*)(?:\D*)')
+# pattern to grab the values from W7 or W11 in named groups
+byte_int_regex_ptn = re.compile(
+    rb'(?:.*)(?:Total (# of )?free bytes\s*:\s*)(?P<total_free>[,0-9]+)(?:.*)\s*'
+    rb'(?:.*)(?:Total (# of )?bytes\s*:\s*)(?P<total>[,0-9]+)(?:.*)\s*'
+    rb'(?:.*)(?:Total (?:# of avail|quota) free bytes\s*:\s*)(?P<total_available>[,0-9]+)(?:.*)'
+)
 
 # pattern to check for only a single letter
 single_letter_ptn = re.compile('^[a-z|A-Z]$')
@@ -103,9 +107,10 @@ class SystemConnection(SSHClientBase):
 
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(f'fsutil volume diskfree {drive_to_check}:',
                                                                   timeout=5)
-        ssh_lines = ssh_stdout.readlines()
-        free_bytes, total_bytes, avail_free_bytes = [int(byte_int_regex_ptn.split(line)[1]) for line in ssh_lines]
-        return avail_free_bytes
+        ssh_out_read = ssh_stdout.read()
+        match = byte_int_regex_ptn.match(ssh_out_read)
+        match_dict = match.groupdict()
+        return int(match_dict['total_available'].decode('utf-8').replace(',', ''))
 
     def get_system_time(self):
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command('wmic os get LocalDateTime /value',

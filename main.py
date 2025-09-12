@@ -1,9 +1,9 @@
 import datetime
-from statistics import linear_regression
 
 import requests
 from fastapi import FastAPI
 
+from calculations.storage_filling_rate import get_storage_filling_rates
 from helpers.helpers import format_storage_bytes
 from log_setup import lg
 from monitors.ftp.drive_free_space import SystemConnection
@@ -69,26 +69,38 @@ if __name__ == '__main__':
                     stm.add_storage_record(bytes_free=free_space_bytes, drive_letter=check_drive_letter)
 
                     # calculate projected days until drive reaches warning and zero free bytes
-                    records = stm.storage_records
-                    # todo: filter on when the bytes went up, create an overall trend slope to compare with the recent
-                    x, y = zip(*[[rcd.record_timestamp.timestamp(), rcd.bytes_free] for rcd in records])
-                    slope, intercept = linear_regression(x, y)  # will be bytes per second,
+                    storage_data: dict = get_storage_filling_rates(stm)
+                    if not storage_data:
+                        lg.info(f"Storage filling rate for {stm.id} was not found. It may not have any records.")
+                    else:
+                        most_recent_rate = storage_data['recent_storage_filling_rate'].rate
+                        recent_vs_historical_ratio = most_recent_rate / storage_data[
+                            'overall_filling_rate_bytes_per_second']
+                        rate_difference = (most_recent_rate - storage_data[
+                            'overall_filling_rate_bytes_per_second']) / storage_data[
+                                              'overall_filling_rate_bytes_per_second']
+                        rate_diff_magnitude = abs(rate_difference)
+                        within_std_dev = rate_diff_magnitude < abs(storage_data['filling_rate_cv'])
+                        lg.info(
+                            f'System storage rate is {recent_vs_historical_ratio * 100:.2f}% of the overall historical filling rate, '
+                            f'{rate_diff_magnitude * 100:.2f}% {"higher" if rate_difference > 0 else "lower"} which is '
+                            f'{"within" if within_std_dev else "outside"} the standard deviation of the historical data.')
 
                     warning_bytes = drive_check_table[stm.id]['alert_low_bytes'][0]
                     warning_bytes_formatted: str = format_storage_bytes(warning_bytes, binary_system=False)
 
                     free_space: str = format_storage_bytes(free_space_bytes, binary_system=False)
                     if warning_bytes >= free_space_bytes:
-                        estimated_zero_bytes_datetime = datetime.datetime.fromtimestamp((0 - intercept) / slope)
-                        days_till_zero_bytes = (estimated_zero_bytes_datetime - today).days
+                        seconds_till_zero_bytes = free_space_bytes / storage_data['recent_storage_filling_rate']
+                        days_till_zero_bytes = datetime.timedelta(seconds=seconds_till_zero_bytes).days
                         lg.warning('BELOW WARNING LIMIT: %s for System %s has %s remaining free on the %s drive'
                                    ' - drive full in %s days.',
                                    warning_bytes_formatted, stm.nickname, free_space, check_drive_letter,
                                    days_till_zero_bytes)
                     else:
-                        estimated_warn_bytes_datetime = datetime.datetime.fromtimestamp(
-                            (warning_bytes - intercept) / slope)
-                        days_till_warn_limit = (estimated_warn_bytes_datetime - today).days
+                        bytes_till_warn_limit = warning_bytes - free_space_bytes
+                        seconds_till_warn_bytes = bytes_till_warn_limit / most_recent_rate
+                        days_till_warn_limit = datetime.timedelta(seconds=seconds_till_warn_bytes).days
                         lg.info('System %s has %s remaining free on the %s drive. Will warn at %s bytes,'
                                 ' estimated in %s days.',
                                 stm.nickname, free_space, check_drive_letter, warning_bytes_formatted,
