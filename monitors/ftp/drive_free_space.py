@@ -43,19 +43,23 @@ class SSHClientBase:
 
     def connect(self, retry=0):
         retry += 1
-        timeout_er = None
+        error_after_retries = None
         while retry:
             try:
                 self.ssh.connect(**self._settings_dict)
-                timeout_er = None
+                error_after_retries = None
                 break  # Successful connection, break out of the loop.
             except TimeoutError as to_er:
-                timeout_er = to_er
+                error_after_retries = to_er
                 lg.warning('Could not connect to remote host. %s', self._settings_dict['hostname'])
+            except ConnectionResetError as cre:
+                error_after_retries = cre
+                lg.warning(
+                    f'Connection was reset while connecting to {self._settings_dict["remote_download_settings"]["hostname"]} (maybe credentials mismatch?): {cre}')
             finally:
                 retry -= 1
-        if timeout_er:
-            raise timeout_er
+        if error_after_retries:
+            raise error_after_retries
 
     def close(self):
         self.ssh.close()
