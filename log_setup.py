@@ -27,6 +27,28 @@ class BreadcrumbFilter(logging.Filter):
         return True
 
 
+class CustomFormatter(logging.Formatter):
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
 def setup_logger():
     # set up the base logger
     logr = logging.getLogger()
@@ -55,6 +77,16 @@ def setup_logger():
     f_handler.setFormatter(f_format)
     logr.addHandler(f_handler)
 
+    # # set logging line colors
+    # import ctypes
+    #
+    # kernel32 = ctypes.WinDLL('kernel32')
+    # kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+    # sh = logging.StreamHandler()
+    # # sh.setLevel(base_log_level)
+    # sh.setFormatter(CustomFormatter())
+    # # os.system('color')
+
     try:
         import paramiko
 
@@ -79,7 +111,19 @@ def setup_logger():
 if __name__ != '__main__':
     # protect against multiple loggers from importing in multiple files
     lg = setup_logger() if not logging.getLogger().hasHandlers() else logging.getLogger()
-# else:
+
+else:
+    lg = setup_logger()
+
+    # lg.debug('testing colors')
+    # lg.info('testing colors')
+    # lg.warning('testing colors')
+    # try:
+    #     raise Exception('testing colors')
+    # except Exception as e:
+    #     lg.exception(e)
+
+
 #     import pandas as pd
 #
 #     column_names = ['tstamp', 'program', 'breadcrumbs', 'callable', 'line#', 'level',
