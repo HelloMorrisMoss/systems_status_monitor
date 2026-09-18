@@ -1,8 +1,6 @@
-import socket
 import unittest
 
 import mock
-import paramiko
 
 from monitors.ftp.drive_free_space import SystemConnection
 
@@ -19,58 +17,80 @@ class TestFreeBytesOnCDrive(unittest.TestCase):
     # @mock.patch("paramiko.client.SSHClient.exec_command")
     @mock.patch("paramiko.Transport")
     @mock.patch("socket.getaddrinfo")
-    # @mock.patch("paramiko.client.SSHClient.exec_command")
-    @mock.patch(paramiko.SSHClient)
-    def test_free_bytes_on_c_drive(self, mock_transport, mock_getaddrinfo, mock_ssh_client):
-        # mock the SFTPClient
-        mock_ssh_client = mock.Mock()
-        mock_ssh_client.stat.return_value.st_size = self.expected_result
-        mock_ssh_client.connect = mock.Mock()
-
-        mock_transport.return_value.open_ssh.return_value = mock_ssh_client
-
-        mock_getaddrinfo.return_value = [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('127.0.0.1', 22))]
-
-        # create a mock channel
-        mock_channel = mock.Mock()
-        mock_channel.recv_exit_status.return_value = 0
-
+    @mock.patch("paramiko.SSHClient")
+    def test_free_bytes_on_c_drive(self, mock_ssh_client, mock_getaddrinfo, mock_transport):
+        # mock the SSHClient
+        instance = mock_ssh_client.return_value
+        
         # create a mock stdout
         mock_stdout = mock.Mock()
-        mock_stdout.readlines.return_value = [
-            'Total # of free bytes        : 12345678\r\n',
-            'Total # of bytes             : 24691356\r\n',
-            'Total # of avail free bytes  : 12345678\r\n']
+        mock_stdout.read.return_value = (
+            b'Total # of free bytes        : 12345678\r\n'
+            b'Total # of bytes             : 24691356\r\n'
+            b'Total # of avail free bytes  : 12345678\r\n')
 
-        # configure the channel to return the mock stdout
-        mock_channel.makefile.return_value = mock_stdout
+        instance.exec_command.return_value = (mock.Mock(), mock_stdout, mock.Mock())
 
-        # configure the transport to return the mock channel
-        mock_transport.return_value.open_channel.return_value = mock_channel
-
-        # mock_std_out = '''< paramiko.ChannelFile
-        # from < paramiko.Channel
-        # 0(closed) -> < paramiko.Transport
-        # at
-        # 0x51544ac0(cipher
-        # aes128 - ctr, 128
-        # bits) (active; 0 open channel(s)) >> >'''
-        # mock_exec_command.return_value = ['Total # of free bytes        : 12345678\r\n', 'Total # of bytes
-        # : 24691356\r\n',
-        #  'Total # of avail free bytes  : 12345678\r\n']
-
-        # mock_getaddrinfo = mock.Mock()
-        # getaddrinfo.return_value = (
-        #     ("irrelevant", None, None, None, "whatever"),
-        # )
-
-        connec_dict = dict(hostname=self.host, username=self.username, password=self.password)
+        connec_dict = mock.Mock()
+        connec_dict.hostname = self.host
+        connec_dict.username = self.username
+        connec_dict.password = self.password
+        connec_dict.static_ip = None
 
         # Test the function
         result = SystemConnection(connec_dict).get_free_space()
 
         # Assert that the function returns the expected result
         self.assertEqual(result, self.expected_result)
+
+    @mock.patch("paramiko.Transport")
+    @mock.patch("socket.getaddrinfo")
+    @mock.patch("paramiko.SSHClient")
+    def test_get_system_time_wmic_success(self, mock_ssh_client, mock_getaddrinfo, mock_transport):
+        instance = mock_ssh_client.return_value
+        mock_stdout = mock.Mock()
+        mock_stdout.read.return_value = b'\r\r\nLocalDateTime=20260918110316.983557-240\r\r\n'
+        instance.exec_command.return_value = (None, mock_stdout, None)
+
+        connec_dict = mock.Mock()
+        connec_dict.hostname = self.host
+        connec_dict.username = self.username
+        connec_dict.password = self.password
+        connec_dict.static_ip = None
+
+        ssc = SystemConnection(connec_dict)
+        result = ssc.get_system_time()
+        self.assertEqual(result.year, 2026)
+        self.assertEqual(result.hour, 11)
+        self.assertEqual(instance.exec_command.call_count, 1)
+
+    @mock.patch("paramiko.Transport")
+    @mock.patch("socket.getaddrinfo")
+    @mock.patch("paramiko.SSHClient")
+    def test_get_system_time_fallback_powershell(self, mock_ssh_client, mock_getaddrinfo, mock_transport):
+        instance = mock_ssh_client.return_value
+
+        mock_stdout_wmic = mock.Mock()
+        mock_stdout_wmic.read.return_value = b"'wmic' is not recognized\r\n"
+
+        mock_stdout_ps = mock.Mock()
+        mock_stdout_ps.read.return_value = b"LocalDateTime=20260918110316.983557-240\r\n"
+
+        instance.exec_command.side_effect = [
+            (None, mock_stdout_wmic, None),
+            (None, mock_stdout_ps, None)
+        ]
+
+        connec_dict = mock.Mock()
+        connec_dict.hostname = self.host
+        connec_dict.username = self.username
+        connec_dict.password = self.password
+        connec_dict.static_ip = None
+
+        ssc = SystemConnection(connec_dict)
+        result = ssc.get_system_time()
+        self.assertEqual(result.year, 2026)
+        self.assertEqual(instance.exec_command.call_count, 2)
 
 
 if __name__ == '__main__':

@@ -19,14 +19,14 @@ byte_int_regex_ptn = re.compile(
 single_letter_ptn = re.compile('^[a-z|A-Z]$')
 
 local_date_time_ptn = re.compile(  # to extract date-time info from wmic LocalDateTime return text
-    rb'(?:\r\r\n)*LocalDateTime=(?P<year>\d{4})'
+    rb'[\r\n]*LocalDateTime=(?P<year>\d{4})'
     rb'(?P<month>\d{2})'
     rb'(?P<day>\d{2})'
     rb'(?P<hour>\d{2})'
     rb'(?P<minute>\d{2})'
     rb'(?P<second>\d{2})'
     rb'\.(?P<microsecond>\d{6})'
-    rb'-(?P<tzinfo>\d{3})(?:\r\r\n)*')
+    rb'[+-](?P<tzinfo>\d{3})[\r\n]*')
 
 
 class SSHClientBase:
@@ -120,9 +120,23 @@ class SystemConnection(SSHClientBase):
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command('wmic os get LocalDateTime /value',
                                                                   timeout=5)
         output_text = ssh_stdout.read()
+        match = self.ldt_ptn.search(output_text)
+
+        if not match:
+            # if wmic fails (e.g., removed in W11), try PowerShell
+            # use DMTF format to stay compatible with the existing regex
+            ps_command = 'powershell -Command " \'LocalDateTime=\' + [Management.ManagementDateTimeConverter]::ToDmtfDateTime((Get-Date))"'
+            ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(ps_command, timeout=5)
+            output_text = ssh_stdout.read()
+            match = self.ldt_ptn.search(output_text)
+
+        if not match:
+            raise RuntimeError(f"Could not retrieve system time from {self.host}. "
+                               f"Output: {output_text.decode('utf-8', errors='replace')}")
+
         system_time = datetime.datetime(
             **{k: int(v) if k != 'tzinfo' else None for k, v in
-               self.ldt_ptn.match(output_text).groupdict().items()})
+               match.groupdict().items()})
         return system_time
 
     def nudge_system_time(self, sign, nudge_ms=300):
